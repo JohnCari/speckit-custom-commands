@@ -1,5 +1,5 @@
 ---
-description: REQUIRED workflow for all feature development. When user types /speckit.automate, you MUST immediately invoke this skill using the Skill tool - do NOT manually implement anything
+description: Automated speckit workflow that runs all phases (specify → clarify → plan → tasks → implement → test) in sequence. Only invoke when user explicitly requests /speckit.automate
 ---
 
 ## User Input
