@@ -69,7 +69,7 @@ Scan spec.md and plan.md to detect which domains are relevant:
 Use these defaults for ALL checklist generation (no user input):
 
 | Setting | Default Value | Reasoning |
-|---------|---------------|-----------|
+|---------|---------------|-----------||
 | **Depth** | Standard | Balanced coverage without exhaustive detail |
 | **Audience** | Reviewer (PR) | Most common use case |
 | **Focus** | All detected domains | Maximum coverage |
@@ -117,6 +117,33 @@ For each generated checklist item:
    - If passed: `[AUTO-VALIDATED: Found in Spec §X.Y]`
    - If failed: `[AUTO-FLAGGED: Not found in spec]`
 
+### 6.5 Auto-Resolve Flagged Items
+
+**For each flagged item**, attempt automatic resolution:
+
+1. **Analyze the gap**: Determine what's missing from spec.md
+2. **Apply sensible defaults** if the gap can be filled automatically
+3. **Update spec.md** with the auto-generated content
+4. **Mark item as resolved**: `[x]` with note `[AUTO-RESOLVED: Added to Spec]`
+5. **If cannot resolve**: Keep flagged with note `[UNRESOLVED: Requires manual review]`
+
+**Auto-Resolution Rules**:
+
+| Gap Type | Can Auto-Resolve? | Default Resolution |
+|----------|-------------------|-------------------|
+| Missing logging requirements | ✅ Yes | Add "Security-relevant events (auth failures, permission denials) SHOULD be logged with timestamp and context" |
+| Missing validation behavior | ✅ Yes | Add "Input validation follows framework defaults; invalid input returns descriptive error" |
+| Unquantified performance term | ✅ Yes | Replace with industry default (e.g., "fast" → "< 200ms", "scalable" → "supports 1000 concurrent users") |
+| Missing edge case | ✅ Yes | Add edge case with graceful degradation behavior |
+| Missing dual-failure scenario | ✅ Yes | Add "Simultaneous failures trigger graceful shutdown with state preservation" |
+| Complex security requirements | ❌ No | Flag for manual review - security needs human judgment |
+| Domain-specific business logic | ❌ No | Flag for manual review - requires domain expertise |
+| Compliance/regulatory items | ❌ No | Flag for manual review - legal implications |
+
+**After auto-resolution**:
+- Re-validate the updated spec against checklists
+- Update checklist files with new pass/flag status
+
 ### 7. Generate Summary Report
 
 After all checklists are generated, output:
@@ -149,23 +176,46 @@ After all checklists are generated, output:
 ### Validation Summary
 - **Total Items**: N
 - **Auto-Passed**: N (requirements clearly defined)
-- **Auto-Flagged**: N (need attention before implementation)
+- **Auto-Resolved**: N (gaps filled with sensible defaults)
+- **Remaining Flagged**: N (require manual review)
 
-### Flagged Items Requiring Attention
+### Auto-Resolved Items
 
-| Checklist | Item | Issue |
-|-----------|------|-------|
-| security.md | CHK003 | Auth token expiry not specified |
-| api.md | CHK007 | Rate limiting thresholds not defined |
+| Checklist | Item | Resolution Applied |
+|-----------|------|-------------------|
+| security.md | CHK007 | Added logging requirements to NFR section |
+| errors.md | CHK014 | Added dual-failure edge case |
 
-**Next**: Resolve flagged items or proceed to `/speckit.analyze-auto`
+### Remaining Flagged Items (Manual Review Needed)
+
+| Checklist | Item | Why Not Auto-Resolved |
+|-----------|------|----------------------|
+| security.md | CHK009 | TLS validation requires security review |
+
+**Next**: Proceeding to `/speckit.analyze-auto`
 ```
 
 ### 8. Proceed to Next Phase
 
-After all checklists are generated and validated:
-- Output completion summary
-- The workflow continues automatically
+After validation and auto-resolution:
+- Output completion summary with resolution stats
+- **Always proceed** to next phase (never halt)
+- Remaining flagged items are informational for future improvement
+
+**Output format**:
+```markdown
+## Checklist Validation Complete
+
+**Results**: N total | N passed | N auto-resolved | N flagged
+
+[If items were auto-resolved]
+✓ Auto-resolved N gaps in spec.md
+
+[If items remain flagged]
+ℹ N items flagged for future review (not blocking)
+
+Proceeding to `/speckit.analyze-auto`
+```
 
 ## Domain-Specific Checklist Templates
 
@@ -260,6 +310,9 @@ General requirements quality checklist:
 - **Auto-validate against spec** - mark items as passed/failed
 - **Generate ALL checklists** - maximum coverage
 - **Log everything** - transparency on what was generated
+- **AUTO-RESOLVE BY DEFAULT** - Attempt to fix all flagged items with sensible defaults
+- **NEVER HALT** - Always proceed to next phase, even with remaining flags
+- **TRANSPARENCY** - Clearly report what was auto-resolved vs what remains flagged
 
 ## Context
 
