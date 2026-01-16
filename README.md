@@ -1,27 +1,30 @@
 # Speckit Custom Commands
 
-Additional commands for [GitHub Spec-Kit](https://github.com/github/spec-kit) that enable fully autonomous workflows with reduced hallucination.
+Custom commands for speckit that enable autonomous feature development.
 
-## Prerequisites
+## Commands
 
-1. Install [GitHub Spec-Kit](https://github.com/github/spec-kit)
-2. Install [Claude Code](https://github.com/anthropics/claude-code)
+| Command | Purpose |
+|---------|---------|
+| `/speckit.automate <desc>` | Run full workflow: specify → plan → tasks → implement → test |
+| `/speckit.test` | Validate code against spec with auto-fix |
+| `/speckit.test fix` | Auto-fix issues and re-verify |
+| `/speckit.test trace` | Show requirement traceability matrix |
 
-## What This Adds
+## Installation
 
-Copy the `.claude/commands/` files into your spec-kit project to get:
+Copy `.claude/commands/` to your project:
 
-| Command | What it does |
-|---------|--------------|
-| `/speckit.test` | Auto-run tests, lint, quality checks |
-| `/speckit.clarify-auto` | Auto-accept best recommendations |
-| `/speckit.analyze-auto` | Auto-fix consistency issues |
-| `/speckit.checklist-auto` | Auto-generate requirement checklists |
-| `/speckit.automate` | Run entire workflow autonomously |
+```bash
+cp -r .claude/commands/* your-project/.claude/commands/
+```
 
-## Why
+## Usage
 
-These commands reduce manual intervention and hallucination by:
-- Using structured defaults instead of guessing
-- Auto-validating against existing artifacts
-- Following deterministic decision trees
+```bash
+# Automate entire feature
+/speckit.automate Add user authentication
+
+# Or run manually
+/speckit.specify → /speckit.plan → /speckit.tasks → /speckit.implement → /speckit.test
+```
