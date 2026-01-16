@@ -1,5 +1,5 @@
 ---
-description: Automated speckit workflow that runs all phases (specify → clarify → plan → tasks → implement → test) in sequence. Only invoke when user explicitly requests /speckit.automate
+description: Automated speckit workflow (specify → plan → tasks → implement → test). Only invoke when user explicitly requests /speckit.automate
 ---
 
 ## User Input
@@ -12,14 +12,18 @@ The feature description or @file reference provided above is passed to the speci
 
 ## Outline
 
-Automate the complete speckit workflow: specify → clarify-auto → plan → tasks → checklist-auto → analyze-auto → implement → test
+Automate the complete speckit workflow: **specify → plan → tasks → implement → test**
 
-### Pre-Flight Directory Check (REQUIRED)
+> **Note**: For interactive spec clarification, run `/speckit.clarify` before invoking `/speckit.automate`.
 
-Before starting any speckit phase, ensure you are in the repository root where `.specify/` lives:
+---
 
-1. **Locate the speckit root**: Find the directory containing `.specify/` folder
-2. **Navigate there**: `cd` to that directory before running any speckit commands
+### Pre-Flight Checks (REQUIRED)
+
+Before starting any phase, verify the environment:
+
+1. **Locate speckit root**: Find the directory containing `.specify/` folder
+2. **Navigate there**: `cd` to that directory before running any commands
 3. **Verify**: Run `ls -d .specify` to confirm `.specify/` is in current directory
 
 ```bash
@@ -28,35 +32,127 @@ cd "$(dirname "$(find /workspaces -name '.specify' -type d 2>/dev/null | head -1
 ls -d .specify  # Should output: .specify
 ```
 
-**Why this matters**: All speckit scripts use `git rev-parse --show-toplevel` to determine where to create branches and specs. If you're in a nested git repo (like supabase-etl/), specs will be created in the wrong location.
+**Why this matters**: All speckit scripts use `git rev-parse --show-toplevel` to determine where to create branches and specs. Running from nested git repos creates specs in wrong locations.
+
+---
+
+### Progress Dashboard
+
+Track workflow progress using this format (update after each phase):
+
+| Phase | Status | Artifacts | Notes |
+|-------|--------|-----------|-------|
+| Specify | ⏳ | spec.md | Creating feature specification |
+| Plan | ⏸ | plan.md | Waiting |
+| Tasks | ⏸ | tasks.md | Waiting |
+| Implement | ⏸ | code files | Waiting |
+| Test | ⏸ | test results | Waiting |
+
+**Status legend**: ✓ Done | ⏳ In Progress | ⏸ Waiting | ✗ Failed
+
+---
 
 ### Execution Steps
 
-**Continuous Execution**: After completing each step below, IMMEDIATELY invoke the next skill without stopping. Do not show intermediate summaries or wait for confirmation between phases.
+**Continuous Execution**: After completing each step, IMMEDIATELY invoke the next skill without stopping. Do not show intermediate summaries or wait for confirmation between phases.
 
-1. **Specify**: Invoke `speckit.specify` with args: `$ARGUMENTS` → creates spec.md
-2. **Clarify**: Invoke `speckit.clarify-auto` (no args) → auto-resolves ambiguities in spec.md
-3. **Plan**: Invoke `speckit.plan` (no args) → creates plan.md
-4. **Tasks**: Invoke `speckit.tasks` (no args) → creates tasks.md
-5. **Checklist**: Invoke `speckit.checklist-auto` (no args) → auto-generates requirement quality checklists
-6. **Analyze**: Invoke `speckit.analyze-auto` (no args) → auto-fixes consistency issues across artifacts
-7. **Implement**: Invoke `speckit.implement` (no args) → builds the feature
-   - **⚠️ MANDATORY**: After implement completes, you MUST immediately invoke speckit.test - do NOT stop here
-8. **Test**: Invoke `speckit.test` (no args) → verifies quality gates
-   - **⚠️ THIS STEP IS REQUIRED** - the workflow is NOT complete until test runs
-   - Only after test completes should you provide the final summary
+#### Phase 1: Specify
+- **Invoke**: `speckit.specify` with args: `$ARGUMENTS`
+- **Creates**: `spec.md` in feature directory
+- **Validation**: Verify spec.md exists and contains `## User Stories` section
+
+#### Phase 2: Plan
+- **Invoke**: `speckit.plan` (no args)
+- **Creates**: `plan.md` with technical implementation approach
+- **Validation**: Verify plan.md exists and contains `## Implementation Approach` section
+
+#### Phase 3: Tasks
+- **Invoke**: `speckit.tasks` (no args)
+- **Creates**: `tasks.md` with actionable task breakdown
+- **Validation**: Verify tasks.md exists and contains task entries
+
+#### Phase 4: Implement
+- **Invoke**: `speckit.implement` (no args)
+- **Creates**: Code files per tasks.md
+- **⚠️ MANDATORY**: After implement completes, you MUST immediately invoke speckit.test
+
+#### Phase 5: Test
+- **Invoke**: `speckit.test` (no args)
+- **Verifies**: Build, tests, lint, format checks pass
+- **⚠️ THIS STEP IS REQUIRED** - the workflow is NOT complete until test runs
+
+---
+
+### Artifact Validation
+
+After each phase, validate before proceeding:
+
+```
+Phase N completes →
+  Check artifact exists and isn't empty →
+  Check for required sections →
+  If valid: proceed to Phase N+1
+  If invalid: report error and stop
+```
+
+**Required artifacts**:
+- `spec.md`: Must have User Stories section
+- `plan.md`: Must have Implementation Approach section
+- `tasks.md`: Must have task entries (checkbox items)
+
+---
+
+### Error Handling
+
+If a phase fails:
+
+1. **Stop immediately** - do not proceed to next phase
+2. **Report the failure** with specific error details
+3. **Suggest remediation**:
+   - For specify failures: Check feature description clarity
+   - For plan failures: Review spec.md for completeness
+   - For tasks failures: Review plan.md structure
+   - For implement failures: Check tasks.md and codebase patterns
+   - For test failures: Run `/speckit.test fix` to auto-fix lint/format issues
+
+---
+
+### Completion Summary
+
+Only after ALL phases complete successfully, provide a summary:
+
+```markdown
+## Workflow Complete ✓
+
+| Phase | Status | Duration |
+|-------|--------|----------|
+| Specify | ✓ | Xm Xs |
+| Plan | ✓ | Xm Xs |
+| Tasks | ✓ | Xm Xs |
+| Implement | ✓ | Xm Xs |
+| Test | ✓ | Xm Xs |
+
+**Feature**: [feature name]
+**Branch**: [branch name]
+**Artifacts created**: spec.md, plan.md, tasks.md, [code files]
+
+### Next Steps
+- Review generated code
+- Run additional manual testing if needed
+- Create PR when ready
+```
+
+---
 
 ### Rules
 
 - Use the Skill tool for each invocation
 - Run all phases automatically without pausing
-- **CRITICAL - TEST IS MANDATORY**: The workflow is NOT complete after implement. You MUST invoke speckit.test after speckit.implement completes. Never end the workflow without running test.
-- **CRITICAL**: After each phase completes, IMMEDIATELY invoke the next skill in the same response - do NOT stop to show intermediate results or wait for user acknowledgment
-- Only provide a final summary after ALL phases complete successfully, or stop immediately if a phase fails
-- Each skill invocation should be in a new tool call immediately following the previous phase's completion
+- **CRITICAL - TEST IS MANDATORY**: Never end the workflow without running test
+- **CRITICAL**: After each phase completes, IMMEDIATELY invoke the next skill
+- Only provide a final summary after ALL phases complete successfully
 - Only the specify phase receives arguments (the user's input)
 - Subsequent phases use artifacts from prior phases
 - Stop and report if any phase fails
-- **CRITICAL**: Always run the Pre-Flight Directory Check before Phase 1 (Specify)
-- The `.specify/` directory location determines where feature branches and specs are created
-- Never run speckit commands from inside nested git repositories (like supabase-etl/)
+- **CRITICAL**: Always run Pre-Flight Checks before Phase 1
+- Never run speckit commands from inside nested git repositories
