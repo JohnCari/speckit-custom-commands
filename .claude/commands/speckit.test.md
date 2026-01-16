@@ -19,176 +19,224 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Verify that the implementation meets the constitution's Quality Gates:
-1. **Build passes** - Code compiles without errors
-2. **Tests pass** - All tests succeed
-3. **Lint clean** - No linting errors or warnings
+Comprehensive QA validation that acts as a "software tester" to verify:
+1. **Code Quality** - Build passes, tests pass, lint clean
+2. **Specification Compliance** - Code implements spec.md requirements
+3. **Acceptance Validation** - All acceptance scenarios have passing tests
+4. **Requirement Traceability** - Clear mapping from requirements to code to tests
 
-This command runs AFTER `/speckit.implement` and uses the Technical Context from `plan.md` to determine the appropriate test commands.
+This command runs AFTER `/speckit.implement` and validates the implementation is complete and correct.
+
+---
 
 ## Execution Modes
 
 | $ARGUMENTS | Behavior |
 |------------|----------|
-| *(empty)* | Run all checks: build → test → lint → format |
-| `quick` | Fast checks only: lint + format (skip build/test) |
-| `fix` | Run all checks, then auto-fix fixable issues, then re-verify |
+| *(empty)* | Full validation: code quality + specification compliance |
+| `quick` | Fast checks only: lint + format (skip build/test/spec) |
+| `fix` | Run all checks, auto-fix issues, re-invoke implement if needed, re-verify |
 | `test` or `tests` | Only run test command |
 | `lint` | Only run lint command |
 | `build` | Only run build command |
-| `full` | All checks + coverage report if available |
+| `trace` | Generate requirement traceability matrix only |
+| `spec` | Validate code against spec.md only (skip build/lint) |
+| `coverage` | Run tests with coverage, map to user stories |
+| `full` | All checks + coverage report + detailed traceability |
 
-## Execution Steps
+---
 
-### 1. Load Feature Context
+## Execution Phases
 
-Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse JSON for FEATURE_DIR. All paths must be absolute.
+### Phase 1: Load Feature Context
 
-For single quotes in args like "I'm Groot", use escape syntax: e.g `'I'\''m Groot'` (or double-quote if possible: `"I'm Groot"`).
+Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse JSON for:
+- `FEATURE_DIR` - Feature directory path
+- `FEATURE_SPEC` - Path to spec.md
+- `IMPL_PLAN` - Path to plan.md
+- `TASKS` - Path to tasks.md
 
 If the script fails or plan.md is missing, abort with:
 ```
 ERROR: No plan.md found. Run /speckit.plan first to create the implementation plan.
 ```
 
-### 2. Parse Technical Context
+### Phase 2: Parse Technical Context
 
-Read `FEATURE_DIR/plan.md` and extract the Technical Context section:
+Read `FEATURE_DIR/plan.md` and extract:
+- `LANGUAGE` - Language/Version (normalize to: rust, python, typescript, go, etc.)
+- `TEST_CMD` - Testing command from plan.md
 
-```markdown
-## Technical Context
+### Phase 3: Build Check Matrix
 
-**Language/Version**: [Extract this - e.g., "Rust 1.75", "Python 3.11"]
-**Testing**: [Extract this - e.g., "cargo test", "pytest", "npm test"]
-**Primary Dependencies**: [Extract for context]
-```
-
-Store these values:
-- `LANGUAGE` = extracted Language/Version (normalize to lowercase base language: "rust", "python", "typescript", "go", etc.)
-- `TEST_CMD` = extracted Testing value (USE THIS DIRECTLY for test execution)
-
-### 3. Build Check Matrix
-
-Based on `LANGUAGE`, determine the full command set:
+Based on `LANGUAGE`, determine commands:
 
 **Rust**:
 | Check | Command | Fix Command |
 |-------|---------|-------------|
 | Build | `cargo build --all-targets` | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
+| Test | `{TEST_CMD}` | N/A |
 | Lint | `cargo clippy --all-targets -- -D warnings` | `cargo clippy --fix --allow-dirty --allow-staged` |
 | Format | `cargo fmt --check` | `cargo fmt` |
+| Coverage | `cargo tarpaulin --out Json` | N/A |
 
 **Python**:
 | Check | Command | Fix Command |
 |-------|---------|-------------|
 | Build | N/A | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
+| Test | `{TEST_CMD}` | N/A |
 | Lint | `ruff check .` | `ruff check --fix .` |
 | Format | `ruff format --check .` | `ruff format .` |
+| Coverage | `pytest --cov --cov-report=json` | N/A |
 
 **TypeScript/JavaScript/Node.js**:
 | Check | Command | Fix Command |
 |-------|---------|-------------|
-| Build | `npm run build` (if script exists) | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
-| Lint | `npm run lint` (if script exists) | `npm run lint -- --fix` |
+| Build | `npm run build` | N/A |
+| Test | `{TEST_CMD}` | N/A |
+| Lint | `npm run lint` | `npm run lint -- --fix` |
 | Format | `npx prettier --check .` | `npx prettier --write .` |
+| Coverage | `npm test -- --coverage` | N/A |
 
 **Go**:
 | Check | Command | Fix Command |
 |-------|---------|-------------|
 | Build | `go build ./...` | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
+| Test | `{TEST_CMD}` | N/A |
 | Lint | `golangci-lint run` | `golangci-lint run --fix` |
 | Format | `gofmt -l .` | `gofmt -w .` |
+| Coverage | `go test -coverprofile=coverage.out ./...` | N/A |
 
-**Java**:
-| Check | Command | Fix Command |
-|-------|---------|-------------|
-| Build | `mvn compile` | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
-| Lint | `mvn checkstyle:check` | N/A |
-| Format | N/A | N/A |
+---
 
-**Swift**:
-| Check | Command | Fix Command |
-|-------|---------|-------------|
-| Build | `swift build` | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
-| Lint | `swiftlint` | `swiftlint --fix` |
-| Format | `swift-format lint -r .` | `swift-format -i -r .` |
+## Phase 4: Code Quality Checks
 
-**C/C++**:
-| Check | Command | Fix Command |
-|-------|---------|-------------|
-| Build | `make` or `cmake --build .` | N/A |
-| Test | `{TEST_CMD}` (from plan.md) | N/A |
-| Lint | `clang-tidy` | N/A |
-| Format | `clang-format --dry-run` | `clang-format -i` |
-
-### 4. Apply Execution Mode
-
-Based on `$ARGUMENTS`, filter the check matrix:
-
-- **empty**: Run all checks (build → test → lint → format)
-- **quick**: Only lint + format
-- **fix**: Run all checks, then run fix commands for failed lint/format, then re-run checks
-- **test/tests**: Only test
-- **lint**: Only lint
-- **build**: Only build
-- **full**: All checks + add coverage flags (e.g., `cargo test` → `cargo tarpaulin`, `pytest` → `pytest --cov`)
-
-### 5. Pre-flight Checks
-
-Before executing, verify tools are available:
-
-```bash
-# For Rust
-command -v cargo > /dev/null 2>&1 || echo "⚠ cargo not found"
-command -v rustfmt > /dev/null 2>&1 || echo "⚠ rustfmt not found. Install with: rustup component add rustfmt"
-cargo clippy --version > /dev/null 2>&1 || echo "⚠ clippy not installed. Install with: rustup component add clippy"
-
-# For Node.js
-command -v npm > /dev/null 2>&1 || echo "⚠ npm not found"
-[ -f package.json ] && jq -e '.scripts.test' package.json > /dev/null 2>&1 || echo "ℹ No test script in package.json"
-[ -f package.json ] && jq -e '.scripts.lint' package.json > /dev/null 2>&1 || echo "ℹ No lint script in package.json"
-
-# For Python
-command -v python > /dev/null 2>&1 || command -v python3 > /dev/null 2>&1 || echo "⚠ python not found"
-command -v ruff > /dev/null 2>&1 || echo "ℹ ruff not found, trying flake8"
-
-# For Go
-command -v go > /dev/null 2>&1 || echo "⚠ go not found"
-command -v golangci-lint > /dev/null 2>&1 || echo "ℹ golangci-lint not found (optional)"
-```
-
-Skip checks gracefully if the tool is not available (don't fail entirely).
-
-### 6. Execute Checks
-
-Run each check in order, capturing:
-- Exit code (0 = pass, non-zero = fail)
-- stdout/stderr output
-- Execution time
-
-**Execution order**: build → test → lint → format
+Run each check in order: **build → test → lint → format**
 
 For each check:
 1. Print: `Running {check}...`
 2. Execute command
-3. Record result (pass/fail, time, output)
+3. Record: exit code, output, execution time
 4. Continue to next check (don't stop on failure)
 
-### 7. Report Results
+---
 
-#### If ALL checks pass:
+## Phase 5: Specification Compliance (NEW)
+
+### 5.1 Parse Specification Artifacts
+
+Read `FEATURE_DIR/spec.md` and extract:
+
+1. **User Stories**: Match pattern `### User Story N - [Title] (Priority: PX)`
+   - Extract: story ID, title, priority
+
+2. **Acceptance Scenarios**: Match pattern `**Given** [X], **When** [Y], **Then** [Z]`
+   - Extract: precondition, action, expected outcome
+   - Associate with parent user story
+
+3. **Functional Requirements**: Match pattern `**FR-XXX**:`
+   - Extract: requirement ID, description
+
+4. **Success Criteria**: Match pattern `**SC-XXX**:`
+   - Extract: criteria ID, measurable outcome
+
+### 5.2 Parse Task Completion
+
+Read `FEATURE_DIR/tasks.md` and extract:
+
+1. **Completed Tasks**: Match pattern `[X]` or `[x]`
+   - Extract: task description, file paths mentioned
+   - Extract: user story tags like `[US1]`, `[US2]`
+
+2. **Pending Tasks**: Match pattern `[ ]`
+   - Flag as incomplete implementation
+
+### 5.3 Generate Requirement Traceability Matrix
+
+Map the chain: **User Story → Tasks → Code Files → Test Files → Test Results**
+
+```
+For each User Story:
+  1. Find tasks tagged with [USn]
+  2. Extract file paths from task descriptions
+  3. Find corresponding test files (*_test.*, test_*.*, *.spec.*)
+  4. Check if tests pass for those files
+  5. Report traceability status
+```
+
+Output format:
+```markdown
+### Requirement Traceability Matrix
+
+| User Story | Tasks | Code Files | Test Files | Test Status |
+|------------|-------|------------|------------|-------------|
+| US1: Create Account | T001, T002 | src/auth.py | tests/test_auth.py | ✓ 4/4 PASS |
+| US2: Password Reset | T003 | src/reset.py | tests/test_reset.py | ⚠ 2/3 PASS |
+| US3: Profile Edit | T004 | - | - | ✗ NOT IMPLEMENTED |
+```
+
+---
+
+## Phase 6: Acceptance Validation (NEW)
+
+For each acceptance scenario in spec.md:
+
+1. **Parse scenario**: Given [precondition], When [action], Then [expected]
+
+2. **Search for matching test**:
+   - Look for test functions containing keywords from the scenario
+   - Match test assertions to the "Then" clause
+   - Check if test passed in Phase 4 results
+
+3. **Report coverage**:
+   - ✓ **Covered**: Test exists and passes
+   - ⚠ **Partial**: Test exists but fails OR only partial assertion match
+   - ✗ **Missing**: No test found for this scenario
+
+Output format:
+```markdown
+### Acceptance Scenario Validation
+
+| # | Scenario (Given/When/Then) | Test | Status |
+|---|---------------------------|------|--------|
+| 1 | Given user on signup, When enters valid email, Then account created | test_signup_success | ✓ PASS |
+| 2 | Given duplicate email, When submits form, Then error shown | test_duplicate_error | ✓ PASS |
+| 3 | Given expired token, When resets password, Then error shown | - | ✗ NO TEST |
+```
+
+---
+
+## Phase 7: Coverage Analysis (for `coverage` and `full` modes)
+
+1. Run coverage tool for the language
+2. Parse coverage report (JSON format preferred)
+3. Map coverage to user stories via file paths from tasks.md
+
+Output format:
+```markdown
+### Coverage by User Story
+
+| User Story | Priority | Files | Coverage | Target | Status |
+|------------|----------|-------|----------|--------|--------|
+| US1: Create Account | P1 | src/auth.py, src/models/user.py | 92% | 85% | ✓ |
+| US2: Password Reset | P2 | src/reset.py | 78% | 75% | ✓ |
+| US3: Profile Edit | P3 | - | 0% | 60% | ✗ |
+
+**Coverage Targets**: P1 ≥85%, P2 ≥75%, P3 ≥60%
+```
+
+---
+
+## Phase 8: Generate Report
+
+### If ALL checks pass:
 
 ```markdown
-## ✓ All Quality Checks Passed
+## ✓ Quality Validation Passed
 
-**Stack**: {LANGUAGE} (from plan.md)
+**Stack**: {LANGUAGE} | **Feature**: {FEATURE_NAME}
 
+### Code Quality
 | Check  | Status | Time  |
 |--------|--------|-------|
 | Build  | ✓ PASS | X.Xs  |
@@ -196,96 +244,161 @@ For each check:
 | Lint   | ✓ PASS | X.Xs  |
 | Format | ✓ PASS | X.Xs  |
 
-**Constitution Quality Gates**: All passed ✓
-**Ready for submission** ✓
+### Specification Compliance
+| Metric | Value |
+|--------|-------|
+| User Stories Implemented | X/Y (Z%) |
+| Acceptance Scenarios Covered | X/Y (Z%) |
+| Requirements Traced | X/Y (Z%) |
+| Scope Drift | None detected |
+
+### Summary
+✓ **Constitution Quality Gates**: All passed
+✓ **Specification Compliance**: 100%
+✓ **Ready for submission**
 ```
 
-#### If ANY checks fail:
+### If ANY checks fail:
 
 ```markdown
-## ✗ Quality Checks Failed
+## ✗ Quality Validation Failed
 
-**Stack**: {LANGUAGE} (from plan.md)
+**Stack**: {LANGUAGE} | **Feature**: {FEATURE_NAME}
 
+### Code Quality
 | Check  | Status | Time  | Issues |
 |--------|--------|-------|--------|
 | Build  | ✓ PASS | X.Xs  | -      |
 | Test   | ✗ FAIL | X.Xs  | N failures |
-| Lint   | ✗ FAIL | X.Xs  | N issues |
+| Lint   | ⚠ WARN | X.Xs  | N warnings |
 | Format | ✓ PASS | X.Xs  | -      |
 
-### Failed: Test
+### Specification Compliance
+| User Story | Status | Tests | Issues |
+|------------|--------|-------|--------|
+| US1 | ✓ COMPLETE | 4/4 | - |
+| US2 | ⚠ PARTIAL | 2/3 | Missing: expired token test |
+| US3 | ✗ MISSING | 0/2 | Not implemented |
+
+### Failed Checks Detail
 
 <details>
-<summary>View test output</summary>
+<summary>Test Failures (click to expand)</summary>
 
 ```
-[Include relevant test failure output here]
+[Test failure output here]
 ```
-
 </details>
 
-### Failed: Lint
+### Auto-Fixable Issues
+| Issue | Fix Command |
+|-------|-------------|
+| Lint errors (5) | `/speckit.test fix` |
+| Format issues (3) | `/speckit.test fix` |
+| Missing test for US2.3 | `/speckit.test fix` (generates stub) |
 
-<details>
-<summary>View lint output</summary>
-
-```
-[Include lint errors/warnings here]
-```
-
-</details>
+### Manual Fixes Required
+| Issue | Action |
+|-------|--------|
+| US3 not implemented | Run `/speckit.implement` |
+| Test assertion wrong | Fix test logic in test_reset.py:45 |
 
 ### Summary
-
-- **Checks**: N | **Passed**: N | **Failed**: N
-- **Auto-fixable**: N (lint/format issues)
-
-### Next Steps
-
-1. **Auto-fix available**: Run `/speckit.test fix` to automatically fix lint/format issues
-2. **Manual fixes needed**:
-   - [List specific files:lines that need manual fixes]
-   - [Provide brief guidance on what to fix]
-
-Or use handoff: `/speckit.implement Fix the failing tests...`
+- **Code Quality**: 3/4 passed
+- **Specification Compliance**: 67%
+- **Blocking Issues**: 2
 ```
 
-### 8. Handle Fix Mode
+---
 
-If `$ARGUMENTS` is `fix`:
+## Phase 9: Auto-Remediation (fix mode)
 
-1. Run all checks first (as above)
-2. For each failed lint/format check, run the corresponding fix command
-3. After fixes applied, re-run ALL checks
-4. Report final results with note: "Auto-fixes applied. Re-ran verification."
+When `$ARGUMENTS` is `fix`:
 
-### 9. Handle Edge Cases
+### Level 1: Code Quality Fixes (Auto-apply)
+
+```
+1. Run lint fix command
+2. Run format fix command
+3. Re-run lint/format checks to verify
+```
+
+### Level 2: Specification Fixes (Generate + Apply)
+
+```
+For each missing acceptance scenario test:
+  1. Generate test stub based on Given/When/Then
+  2. Add to appropriate test file
+  3. Mark as TODO for manual implementation
+
+Template:
+def test_{scenario_keywords}():
+    """
+    Acceptance Scenario: {scenario}
+    Given: {given}
+    When: {when}
+    Then: {then}
+    """
+    # TODO: Implement this acceptance test
+    raise NotImplementedError("Generated stub - implement this test")
+```
+
+### Level 3: Implementation Fixes (Handoff)
+
+```
+If implementation gaps detected (incomplete user stories):
+  1. Generate specific fix instructions
+  2. Invoke speckit.implement with:
+     "Fix the following implementation gaps:
+      - US2: Missing test for 'expired token' scenario
+      - US3: Not implemented - see spec.md for requirements"
+  3. After implement completes, re-run all checks
+```
+
+### Final Re-verification
+
+After all fixes applied:
+1. Re-run ALL checks (Phase 4-7)
+2. Report: "Auto-fixes applied. Results:"
+3. Show updated report
+
+---
+
+## Behavior Rules
+
+1. **Always validate against spec.md** - Code must implement what's specified
+2. **Use TEST_CMD from plan.md** - Don't override user's test command
+3. **Continue on failure** - Run all checks to collect full picture
+4. **Actionable output** - Every failure includes how to fix it
+5. **Respect constitution** - Frame results in terms of Quality Gates
+6. **Auto-fix aggressively** - In fix mode, fix everything possible
+7. **Handoff implementation gaps** - Use speckit.implement for code fixes
+8. **Re-verify after fixes** - Always confirm fixes worked
+
+---
+
+## Edge Cases
 
 | Scenario | Behavior |
 |----------|----------|
 | plan.md missing | ERROR: "Run /speckit.plan first" |
-| Language not recognized | Ask: "Could not detect language from plan.md. Which stack? (rust/python/node/go)" |
-| Test command empty | WARN: "No test command in plan.md. Skipping tests." |
-| Tool not installed | SKIP that check, note in output: "⚠ Skipped: {tool} not found" |
-| Command times out (>5min) | Kill process, report: "⚠ {check} timed out after 5 minutes" |
-| No tests found | INFO: "ℹ No tests found. Consider adding tests." |
+| spec.md missing | WARN: "No spec.md found. Running code quality checks only." |
+| tasks.md missing | WARN: "No tasks.md found. Cannot trace requirements." |
+| Language not recognized | Ask: "Could not detect language. Which stack? (rust/python/node/go)" |
+| No tests found | WARN: "No tests found. Acceptance scenarios cannot be validated." |
+| Tool not installed | SKIP that check, note: "⚠ Skipped: {tool} not found" |
+| Command timeout (>5min) | Kill, report: "⚠ {check} timed out" |
 
-## Behavior Rules
-
-1. **Always read from plan.md** - Never guess the stack; use what the user specified
-2. **Use TEST_CMD directly** - Don't override the test command from plan.md
-3. **Continue on failure** - Run all checks even if some fail (collect full picture)
-4. **Actionable output** - Every failure should include how to fix it
-5. **Respect constitution** - Frame results in terms of Quality Gates
-6. **Be helpful on fix mode** - Auto-fix what can be fixed, clearly report what can't
+---
 
 ## Context
 
-This command is the **final step** in the speckit workflow:
+This command is the **final validation step** in the speckit workflow:
 
 ```
-/speckit.specify → /speckit.clarify → /speckit.plan → /speckit.tasks → /speckit.implement → /speckit.test
+/speckit.specify → /speckit.plan → /speckit.tasks → /speckit.implement → /speckit.test
 ```
 
-After `/speckit.test` passes, the code is ready for PR submission.
+**Role**: speckit.test is the "software tester" that validates speckit.implement's "developer" work.
+
+After `/speckit.test` passes with 100% specification compliance, the code is ready for PR submission.
