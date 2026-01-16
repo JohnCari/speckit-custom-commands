@@ -2,6 +2,11 @@
 
 Custom commands for speckit that enable autonomous feature development.
 
+## Prerequisites
+
+1. [Claude Code](https://github.com/anthropics/claude-code)
+2. [GitHub Speckit](https://github.com/github/spec-kit)
+
 ## Commands
 
 | Command | Purpose |
